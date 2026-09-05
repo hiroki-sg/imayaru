@@ -143,8 +143,43 @@ main{padding:8px 14px 28px}
 #list-open:checked ~ .list-panels .open-panel{display:block}
 #list-done:checked ~ .list-panels .done-panel{display:block}
 .task-list{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
-.task-row{width:100%;border:0;border-bottom:1px solid var(--line);background:var(--surface);padding:15px 16px;text-align:left;display:grid;grid-template-columns:1fr auto;gap:10px}
-.task-row:last-child{border-bottom:0}
+.swipe-item{
+  position:relative;
+  overflow:hidden;
+  border-bottom:1px solid var(--line);
+  background:var(--surface)
+}
+.swipe-item:last-child{border-bottom:0}
+.swipe-actions{
+  position:absolute;
+  top:0;right:0;bottom:0;
+  display:flex;
+  align-items:stretch;
+  justify-content:flex-end
+}
+.swipe-delete{
+  width:88px;
+  border:0;
+  border-radius:0;
+  background:#ff4d4f;
+  color:#fff;
+  font-weight:760;
+  font-size:15px
+}
+.task-row{
+  position:relative;
+  width:100%;
+  border:0;
+  background:var(--surface);
+  padding:15px 16px;
+  text-align:left;
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:10px;
+  transform:translateX(0);
+  transition:transform .18s ease
+}
+.swipe-item.open .task-row{transform:translateX(-88px)}
 .row-title{font-size:16px;font-weight:700}
 .row-sub{font-size:12px;color:var(--sub);display:flex;gap:8px;flex-wrap:wrap;margin-top:5px}
 .row-action{font-size:12px;color:var(--accent);font-weight:700;align-self:center}
@@ -346,6 +381,7 @@ main{padding:8px 14px 28px}
   const K='imayaru_v2_tasks';
   let tasks = [];
   let editId = null;
+  let selectedRecommendId = null;
   const $ = id => document.getElementById(id);
 
   try { tasks = JSON.parse(localStorage.getItem(K)) || []; } catch(e){ tasks=[]; }
@@ -438,47 +474,113 @@ main{padding:8px 14px 28px}
 
   function renderRecommend(){
     const r=ranked(), wrap=$('recommendWrap');
+
     if(!r.length){
+      selectedRecommendId=null;
       wrap.innerHTML='';
       return;
     }
-    const t=r[0], mins=freeTime(), partial=t.minutes>mins;
+
+    let selected=r.find(t=>t.id===selectedRecommendId);
+    if(!selected){
+      selected=r[0];
+      selectedRecommendId=selected.id;
+    }
+
+    const others=r.filter(t=>t.id!==selected.id);
+    const mins=freeTime();
+    const partial=selected.minutes>mins;
+
     wrap.innerHTML=`
       <div class="section-title">いまやるなら</div>
       <div class="card recommend">
         <div class="eyebrow">${partial?mins+'分だけ進める':'おすすめ'}</div>
-        <div class="bigtitle">${esc(t.name)}</div>
+        <div class="bigtitle">${esc(selected.name)}</div>
         <div class="meta">
-          <span class="badge">${t.minutes}分</span>
-          <span class="badge">負荷 ${ll(t.load)}</span>
-          <span class="badge">優先 ${pl(t.priority)}</span>
-          ${dl(t)?`<span class="badge">${dl(t)}</span>`:''}
+          <span class="badge">${selected.minutes}分</span>
+          <span class="badge">負荷 ${ll(selected.load)}</span>
+          <span class="badge">優先 ${pl(selected.priority)}</span>
+          ${dl(selected)?`<span class="badge">${dl(selected)}</span>`:''}
         </div>
-        <div class="why">${t.priority===3?'基本優先順位が高いです。 ':''}${dl(t)?'締切も考慮しています。 ':''}${partial?mins+'分だけでも進められます。':'今の空き時間で終えられます。'}</div>
-        <button class="primary" id="completeTop">${partial?mins+'分やった':'完了にする'}</button>
+        <div class="why">${selected.priority===3?'基本優先順位が高いです。 ':''}${dl(selected)?'締切も考慮しています。 ':''}${partial?mins+'分だけでも進められます。':'今の空き時間で終えられます。'}</div>
+        <button class="primary" type="button" id="completeTop">${partial?mins+'分やった':'完了にする'}</button>
       </div>
-      ${r.length>1?`<div class="section-title" style="margin-top:15px">ほかの候補</div><div class="alt">${
-        r.slice(1,3).map(x=>`<button data-edit="${x.id}"><strong>${esc(x.name)}</strong><span>${x.minutes}分 ・ 負荷 ${ll(x.load)}${dl(x)?' ・ '+dl(x):''}</span></button>`).join('')
-      }</div>`:''}`;
+
+      ${others.length ? `
+        <div class="section-title" style="margin-top:15px">ほかの候補</div>
+        <div class="alt">
+          ${others.slice(0,4).map(t=>`
+            <button type="button" data-select-recommend="${t.id}">
+              <strong>${esc(t.name)}</strong>
+              <span>${t.minutes}分 ・ 負荷 ${ll(t.load)} ・ 優先 ${pl(t.priority)}${dl(t)?' ・ '+dl(t):''}</span>
+            </button>`).join('')}
+        </div>
+      `:''}
+    `;
+
     $('completeTop').onclick=()=>{
-      const original=tasks.find(x=>x.id===t.id);
-      if(!original)return;
-      if(partial) original.minutes=Math.max(5,original.minutes-mins);
-      else { original.completed=true; original.completedAt=new Date().toISOString(); }
-      save(); renderAll(); toast(partial?mins+'分ぶん進めました':'完了にしました');
+      const original=tasks.find(x=>x.id===selected.id);
+      if(!original) return;
+
+      if(partial){
+        original.minutes=Math.max(5,original.minutes-mins);
+        toast(mins+'分ぶん進めました');
+      }else{
+        original.completed=true;
+        original.completedAt=new Date().toISOString();
+        toast('完了にしました');
+      }
+
+      selectedRecommendId=null;
+      save();
+      renderAll();
     };
-    document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEdit(b.dataset.edit));
+
+    document.querySelectorAll('[data-select-recommend]').forEach(btn=>{
+      btn.onclick=()=>{
+        selectedRecommendId=btn.dataset.selectRecommend;
+        renderRecommend();
+        requestAnimationFrame(()=>{
+          const card=document.querySelector('.recommend');
+          if(card) card.scrollIntoView({behavior:'smooth',block:'nearest'});
+        });
+      };
+    });
   }
 
   function renderList(){
     const q=$('search').value.trim().toLowerCase();
 
-    const renderRows=(arr,isDone)=>{
+    const renderOpenRows=(arr)=>{
       if(!arr.length){
-        return `<div class="card empty"><strong>${isDone?'完了タスクはまだありません':'未完了タスクはありません'}</strong></div>`;
+        return `<div class="card empty"><strong>未完了タスクはありません</strong></div>`;
       }
       return `<div class="task-list">${arr.map(t=>`
-        <button class="task-row" data-row="${t.id}">
+        <div class="swipe-item" data-swipe-item="${t.id}">
+          <div class="swipe-actions">
+            <button type="button" class="swipe-delete" data-delete-row="${t.id}">削除</button>
+          </div>
+          <button class="task-row" type="button" data-row="${t.id}">
+            <div>
+              <div class="row-title">${esc(t.name)}</div>
+              <div class="row-sub">
+                <span>${t.minutes}分</span>
+                <span>負荷 ${ll(t.load)}</span>
+                <span>優先 ${pl(t.priority)}</span>
+                ${dl(t)?`<span>${dl(t)}</span>`:''}
+              </div>
+            </div>
+            <div class="row-action">編集</div>
+          </button>
+        </div>`).join('')}</div>`;
+    };
+
+    const renderDoneRows=(arr)=>{
+      if(!arr.length){
+        return `<div class="card empty"><strong>完了タスクはまだありません</strong></div>`;
+      }
+      return `<div class="task-list">${arr.map(t=>`
+        <button class="task-row" type="button" data-row="${t.id}">
           <div>
             <div class="row-title">${esc(t.name)}</div>
             <div class="row-sub">
@@ -488,7 +590,7 @@ main{padding:8px 14px 28px}
               ${dl(t)?`<span>${dl(t)}</span>`:''}
             </div>
           </div>
-          <div class="row-action">${isDone?'完了':'編集'}</div>
+          <div class="row-action">完了</div>
         </button>`).join('')}</div>`;
     };
 
@@ -503,10 +605,88 @@ main{padding:8px 14px 28px}
       .filter(t=>!q||t.name.toLowerCase().includes(q))
       .sort((a,b)=>new Date(b.completedAt||0)-new Date(a.completedAt||0));
 
-    $('openListWrap').innerHTML=renderRows(openArr,false);
-    $('doneListWrap').innerHTML=renderRows(doneArr,true);
+    $('openListWrap').innerHTML=renderOpenRows(openArr);
+    $('doneListWrap').innerHTML=renderDoneRows(doneArr);
 
-    document.querySelectorAll('[data-row]').forEach(b=>b.onclick=()=>openEdit(b.dataset.row));
+    bindTaskRowEvents();
+  }
+
+  function removeTaskById(id){
+    tasks=tasks.filter(t=>t.id!==id);
+    if(selectedRecommendId===id) selectedRecommendId=null;
+    save();
+    renderAll();
+    toast('削除しました');
+  }
+
+  function closeAllSwipeItems(exceptId=''){
+    document.querySelectorAll('.swipe-item.open').forEach(el=>{
+      if(exceptId && el.dataset.swipeItem===exceptId) return;
+      el.classList.remove('open');
+    });
+  }
+
+  function bindTaskRowEvents(){
+    document.querySelectorAll('[data-row]').forEach(btn=>{
+      btn.onclick=()=>{
+        const parent=btn.closest('.swipe-item');
+        if(parent && parent.classList.contains('open')){
+          parent.classList.remove('open');
+          return;
+        }
+        openEdit(btn.dataset.row);
+      };
+    });
+
+    document.querySelectorAll('[data-delete-row]').forEach(btn=>{
+      btn.onclick=(e)=>{
+        e.stopPropagation();
+        removeTaskById(btn.dataset.deleteRow);
+      };
+    });
+
+    document.querySelectorAll('.swipe-item').forEach(item=>{
+      let startX=0, startY=0, currentX=0, dragging=false, horizontal=false;
+
+      item.addEventListener('touchstart',e=>{
+        const t=e.touches[0];
+        startX=t.clientX;
+        startY=t.clientY;
+        currentX=startX;
+        dragging=true;
+        horizontal=false;
+      }, {passive:true});
+
+      item.addEventListener('touchmove',e=>{
+        if(!dragging) return;
+        const t=e.touches[0];
+        currentX=t.clientX;
+        const dx=currentX-startX;
+        const dy=t.clientY-startY;
+
+        if(!horizontal){
+          if(Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) horizontal=true;
+          else if(Math.abs(dy) > 10) { dragging=false; return; }
+        }
+        if(!horizontal) return;
+
+        if(dx < -18){
+          closeAllSwipeItems(item.dataset.swipeItem);
+          item.classList.add('open');
+        }else if(dx > 18){
+          item.classList.remove('open');
+        }
+      }, {passive:true});
+
+      item.addEventListener('touchend',()=>{
+        dragging=false;
+      });
+
+      item.addEventListener('click',e=>{
+        if(e.target.closest('.swipe-delete')) return;
+      });
+    });
+
   }
 
   function setChoice(id,v){
@@ -595,7 +775,9 @@ main{padding:8px 14px 28px}
   }
   function deleteTask(){
     if(!editId)return;
-    tasks=tasks.filter(t=>t.id!==editId); save(); resetForm(); renderAll(); $('tab-list').checked=true; syncHeader(); toast('削除しました');
+    tasks=tasks.filter(t=>t.id!==editId);
+    if(selectedRecommendId===editId) selectedRecommendId=null;
+    save(); resetForm(); renderAll(); $('tab-list').checked=true; syncHeader(); toast('削除しました');
   }
 
   function syncHeader(){
@@ -625,6 +807,15 @@ main{padding:8px 14px 28px}
   $('durationPicker').addEventListener('change',updateDurationDisplay);
   $('deadline').addEventListener('input',updateDeadlineDisplay);
   $('deadline').addEventListener('change',updateDeadlineDisplay);
+
+  document.addEventListener('click',e=>{
+    if(e.target.closest('.swipe-item')) return;
+    closeAllSwipeItems();
+  });
+  document.addEventListener('touchstart',e=>{
+    if(e.target.closest('.swipe-item')) return;
+    closeAllSwipeItems();
+  }, {passive:true});
 
   document.documentElement.dataset.js='on';
   updateDurationDisplay();updateDeadlineDisplay();renderAll();syncHeader();
