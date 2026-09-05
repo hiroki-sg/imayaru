@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7f8f6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="いまやる">
+<title>いまやる</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+:root{
+  --bg:#f7f8f6;--surface:#fff;--text:#161916;--sub:#767c77;--line:#e4e7e3;
+  --accent:#477867;--soft:#e7f0ec;--danger:#b84a4a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Yu Gothic UI",sans-serif;color:var(--text)}
+body{min-height:100dvh}
+button,input{font:inherit}
+input[type=radio]{position:absolute;opacity:0;pointer-events:none}
+.shell{max-width:620px;margin:auto;min-height:100dvh;padding-bottom:calc(86px + env(safe-area-inset-bottom))}
+header{padding:calc(18px + env(safe-area-inset-top)) 18px 8px}
+h1{font-size:28px;margin:0;letter-spacing:-.03em}
+#sub{font-size:13px;color:var(--sub);margin-top:5px}
+main{padding:8px 14px 28px}
+.page{display:none}
+
+/* JSなしでもタブ切替が動く */
+#tab-home:checked ~ .shell main .home,
+#tab-list:checked ~ .shell main .list,
+#tab-add:checked ~ .shell main .add{display:block}
+#tab-home:checked ~ .bottom-nav label[for=tab-home],
+#tab-list:checked ~ .bottom-nav label[for=tab-list],
+#tab-add:checked ~ .bottom-nav label[for=tab-add]{background:var(--soft);color:var(--accent)}
+
+.section{margin:14px 0 22px}
+.section-title{font-size:13px;font-weight:650;color:var(--sub);margin:0 4px 9px}
+.segment{display:grid;gap:8px}
+.segment.four{grid-template-columns:repeat(4,1fr)}
+.segment.three{grid-template-columns:repeat(3,1fr)}
+.segment label{
+  min-height:46px;border:1px solid var(--line);border-radius:14px;background:var(--surface);
+  display:flex;align-items:center;justify-content:center;font-weight:680
+}
+#time15:checked ~ .shell label[for=time15],
+#time30:checked ~ .shell label[for=time30],
+#time60:checked ~ .shell label[for=time60],
+#time90:checked ~ .shell label[for=time90],
+#energy1:checked ~ .shell label[for=energy1],
+#energy2:checked ~ .shell label[for=energy2],
+#energy3:checked ~ .shell label[for=energy3]{
+  background:var(--accent);border-color:var(--accent);color:#fff
+}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:17px}
+.recommend{padding:20px}
+.eyebrow{font-size:12px;color:var(--accent);font-weight:760;margin-bottom:7px}
+.bigtitle{font-size:22px;font-weight:760;line-height:1.35}
+.meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.badge{font-size:12px;background:#f0f2ef;color:var(--sub);padding:6px 9px;border-radius:999px}
+.why{border-top:1px solid var(--line);margin-top:14px;padding-top:13px;color:var(--sub);font-size:13px;line-height:1.6}
+.primary{width:100%;border:0;border-radius:14px;min-height:50px;background:var(--accent);color:#fff;font-weight:760;margin-top:14px}
+.secondary{border:1px solid var(--line);border-radius:13px;background:var(--surface);min-height:46px;font-weight:680}
+.ghost{width:100%;border:0;background:transparent;color:var(--sub);min-height:42px;font-weight:650}
+.input{width:100%;min-height:48px;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:0 14px;outline:none}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+.field{margin-bottom:17px}
+.field label.title{display:block;font-size:13px;color:var(--sub);font-weight:650;margin:0 0 8px 2px}
+.choices{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.choices button{min-height:44px;border:1px solid var(--line);border-radius:13px;background:var(--surface);font-weight:680}
+.choices button.active{background:var(--soft);color:var(--accent);border-color:transparent}
+
+.duration-picker-wrap{
+  border:1px solid var(--line);border-radius:16px;padding:14px;background:#fbfcfa
+}
+.duration-display{
+  font-size:24px;font-weight:760;letter-spacing:-.02em;margin:1px 0 12px
+}
+.duration-picker{
+  width:100%;min-height:52px;border:1px solid var(--line);border-radius:14px;background:var(--surface);
+  padding:0 14px;color:var(--text);font-size:18px;font-weight:700;text-align:center;
+  appearance:auto;-webkit-appearance:auto
+}
+.duration-picker:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+
+.form-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px}
+.note{font-size:12px;color:var(--sub);line-height:1.6;margin-top:7px}
+.search{margin-bottom:11px}
+.list-tabs{display:flex;gap:7px;margin-bottom:11px}
+.list-tabs label{
+  border:0;border-radius:999px;padding:8px 12px;background:#edf0ed;color:var(--sub);
+  font-weight:650;cursor:pointer
+}
+#list-open:checked ~ .list-tabs label[for=list-open],
+#list-done:checked ~ .list-tabs label[for=list-done]{
+  background:var(--soft);color:var(--accent)
+}
+.list-panel{display:none}
+#list-open:checked ~ .list-panels .open-panel{display:block}
+#list-done:checked ~ .list-panels .done-panel{display:block}
+.task-list{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.task-row{width:100%;border:0;border-bottom:1px solid var(--line);background:var(--surface);padding:15px 16px;text-align:left;display:grid;grid-template-columns:1fr auto;gap:10px}
+.task-row:last-child{border-bottom:0}
+.row-title{font-size:16px;font-weight:700}
+.row-sub{font-size:12px;color:var(--sub);display:flex;gap:8px;flex-wrap:wrap;margin-top:5px}
+.row-action{font-size:12px;color:var(--accent);font-weight:700;align-self:center}
+.empty{text-align:center;color:var(--sub);padding:34px 20px}
+.empty strong{display:block;color:var(--text);font-size:17px;margin-bottom:5px}
+.alt{display:grid;gap:8px;margin-top:10px}
+.alt button{border:1px solid var(--line);border-radius:15px;background:var(--surface);padding:13px 14px;text-align:left}
+.alt strong{display:block}.alt span{display:block;font-size:12px;color:var(--sub);margin-top:4px}
+.bottom-nav{
+  position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(620px,100%);
+  display:grid;grid-template-columns:repeat(3,1fr);padding:7px 8px calc(7px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--line);background:rgba(255,255,255,.94);backdrop-filter:blur(18px);z-index:20
+}
+.bottom-nav label{height:56px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:660;color:var(--sub);cursor:pointer}
+.nav-icon{font-size:20px;line-height:1.2;margin-bottom:2px}
+.fab-label{
+  position:fixed;right:max(18px,calc((100vw - 620px)/2 + 18px));bottom:calc(86px + env(safe-area-inset-bottom));
+  width:54px;height:54px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 10px 28px rgba(52,90,74,.22);z-index:15
+}
+#tab-list:not(:checked) ~ .shell .fab-label{display:none}
+.form-actions{display:grid;grid-template-columns:1fr 1.5fr;gap:8px;margin-top:12px}
+.nojs{margin-top:12px;color:var(--danger);font-size:13px;line-height:1.6}
+.runtime-warning{
+  display:none;margin:12px 0;padding:12px 14px;border-radius:14px;
+  background:#fff3ef;color:#9b4a39;font-size:13px;line-height:1.5
+}
+
+.toast{position:fixed;left:50%;bottom:calc(98px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#202521;color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;opacity:0;transition:.2s;z-index:40;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ナビゲーションはCSSだけでも動く -->
+<input type="radio" name="tab" id="tab-home" checked>
+<input type="radio" name="tab" id="tab-list">
+<input type="radio" name="tab" id="tab-add">
+
+<!-- 時間・余力も選択自体はCSSだけでも反応 -->
+<input type="radio" name="time" id="time15" value="15">
+<input type="radio" name="time" id="time30" value="30" checked>
+<input type="radio" name="time" id="time60" value="60">
+<input type="radio" name="time" id="time90" value="90">
+<input type="radio" name="energy" id="energy1" value="1">
+<input type="radio" name="energy" id="energy2" value="2" checked>
+<input type="radio" name="energy" id="energy3" value="3">
+
+<div class="shell">
+<header>
+  <h1 id="title">いまやる</h1>
+  <div id="sub">空いた時間に、迷わずひとつ。</div>
+</header>
+
+<main>
+  <section class="page home">
+    <div class="section">
+      <div class="section-title">いま何分ある？</div>
+      <div class="segment four">
+        <label for="time15">15分</label>
+        <label for="time30">30分</label>
+        <label for="time60">60分</label>
+        <label for="time90">90分</label>
+      </div>
+      <div style="margin-top:9px">
+        <input id="customTime" class="input" type="number" inputmode="numeric" min="5" step="5" placeholder="自由入力（分）">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">いまの余力は？</div>
+      <div class="segment three">
+        <label for="energy1">疲れた</label>
+        <label for="energy2">普通</label>
+        <label for="energy3">元気</label>
+      </div>
+    </div>
+
+    <div class="section" id="recommendWrap"></div>
+  </section>
+
+  <section class="page list">
+    <div class="search"><input id="search" class="input" placeholder="タスクを検索"></div>
+    <input type="radio" name="listmode" id="list-open" value="open" checked>
+    <input type="radio" name="listmode" id="list-done" value="done">
+
+    <div class="list-tabs">
+      <label for="list-open">未完了</label>
+      <label for="list-done">完了</label>
+    </div>
+
+    <div class="list-panels">
+      <div id="openListWrap" class="list-panel open-panel"></div>
+      <div id="doneListWrap" class="list-panel done-panel"></div>
+    </div>
+  </section>
+
+  <label for="tab-add" class="fab-label" aria-label="タスク追加">＋</label>
+
+  <section class="page add">
+    <form id="taskForm">
+    <div id="runtimeWarning" class="runtime-warning"></div>
+    <div class="form-card">
+      <div class="field">
+        <label class="title" for="taskName">タスク名</label>
+        <input id="taskName" class="input" maxlength="80" placeholder="例：循環器の復習">
+      </div>
+
+      <div class="field">
+        <label class="title">基本優先順位</label>
+        <div class="choices" id="priority">
+          <button data-v="1">低</button>
+          <button data-v="2" class="active">中</button>
+          <button data-v="3">高</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="title" for="durationPicker">必要時間</label>
+        <div class="duration-picker-wrap">
+          <div class="duration-display" id="durationDisplay">0時間30分</div>
+          <input
+            id="durationPicker"
+            class="duration-picker"
+            type="time"
+            value="00:30"
+            min="00:05"
+            max="23:55"
+            step="300"
+          >
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="title">負荷</label>
+        <div class="choices" id="load">
+          <button data-v="1">低</button>
+          <button data-v="2" class="active">中</button>
+          <button data-v="3">高</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="title" for="deadline">締切（任意）</label>
+        <input id="deadline" class="input" type="date">
+        <div class="note">締切が近づくほど自動でおすすめ順位が上がります。</div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" id="deleteBtn" class="secondary" style="display:none;color:var(--danger)">削除</button>
+      <button type="submit" id="saveBtn" class="primary" style="margin-top:0">追加する</button>
+    </div>
+    </form>
+    <noscript>
+      <div class="card nojs">
+        この表示環境ではタスクの保存機能を実行できません。SafariやGitHub Pagesで開くと利用できます。
+      </div>
+    </noscript>
+  </section>
+</main>
+</div>
+
+<nav class="bottom-nav">
+  <label for="tab-home"><span class="nav-icon">◎</span>おすすめ</label>
+  <label for="tab-list"><span class="nav-icon">☷</span>一覧</label>
+  <label for="tab-add"><span class="nav-icon">＋</span>追加</label>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const K='imayaru_v2_tasks';
+  let tasks = [];
+  let editId = null;
+  const $ = id => document.getElementById(id);
+
+  try { tasks = JSON.parse(localStorage.getItem(K)) || []; } catch(e){ tasks=[]; }
+
+  let storageAvailable=true;
+  const save = () => {
+    try{
+      localStorage.setItem(K, JSON.stringify(tasks));
+      storageAvailable=true;
+      return true;
+    }catch(e){
+      storageAvailable=false;
+      const w=$('runtimeWarning');
+      if(w){
+        w.style.display='block';
+        w.textContent='この表示環境では端末保存が使えません。タスクはこの画面を閉じるまで一時的に保持します。';
+      }
+      return false;
+    }
+  };
+  const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+  function selectedRadio(name){
+    return Number(document.querySelector(`input[name="${name}"]:checked`)?.value || 0);
+  }
+  function freeTime(){
+    return Number($('customTime').value || 0) || selectedRadio('time') || 30;
+  }
+  function energy(){ return selectedRadio('energy') || 2; }
+
+  function days(deadline){
+    if(!deadline) return null;
+    return (new Date(deadline+'T23:59:59') - new Date()) / 86400000;
+  }
+  function deadlineBoost(t){
+    const d=days(t.deadline);
+    if(d===null) return 0;
+    if(d<0) return 100;
+    return Math.max(0,55-d*4.5)+Math.min(28,(t.minutes/Math.max(d,1))/10);
+  }
+  function score(t){
+    const p={1:25,2:50,3:78}[t.priority]||50;
+    const e=energy(), diff=Math.abs(t.load-e);
+    const loadFit=diff===0?18:diff===1?9:(e<t.load?-14:3);
+    const mins=freeTime();
+    const timeFit=t.minutes<=mins?18:8;
+    return p+deadlineBoost(t)+loadFit+timeFit;
+  }
+  function dl(t){
+    const d=days(t.deadline);
+    if(d===null) return '';
+    if(d<0) return '期限超過';
+    if(d<1) return '今日まで';
+    return 'あと'+Math.ceil(d)+'日';
+  }
+  const pl=n=>['','低','中','高'][n]||'中';
+  const ll=n=>['','低','中','高'][n]||'中';
+
+  function ranked(){
+    return tasks.filter(t=>!t.completed).map(t=>({...t,_score:score(t)})).sort((a,b)=>b._score-a._score);
+  }
+
+  function renderRecommend(){
+    const r=ranked(), wrap=$('recommendWrap');
+    if(!r.length){
+      wrap.innerHTML='';
+      return;
+    }
+    const t=r[0], mins=freeTime(), partial=t.minutes>mins;
+    wrap.innerHTML=`
+      <div class="section-title">いまやるなら</div>
+      <div class="card recommend">
+        <div class="eyebrow">${partial?mins+'分だけ進める':'おすすめ'}</div>
+        <div class="bigtitle">${esc(t.name)}</div>
+        <div class="meta">
+          <span class="badge">${t.minutes}分</span>
+          <span class="badge">負荷 ${ll(t.load)}</span>
+          <span class="badge">優先 ${pl(t.priority)}</span>
+          ${dl(t)?`<span class="badge">${dl(t)}</span>`:''}
+        </div>
+        <div class="why">${t.priority===3?'基本優先順位が高いです。 ':''}${dl(t)?'締切も考慮しています。 ':''}${partial?mins+'分だけでも進められます。':'今の空き時間で終えられます。'}</div>
+        <button class="primary" id="completeTop">${partial?mins+'分やった':'完了にする'}</button>
+      </div>
+      ${r.length>1?`<div class="section-title" style="margin-top:15px">ほかの候補</div><div class="alt">${
+        r.slice(1,3).map(x=>`<button data-edit="${x.id}"><strong>${esc(x.name)}</strong><span>${x.minutes}分 ・ 負荷 ${ll(x.load)}${dl(x)?' ・ '+dl(x):''}</span></button>`).join('')
+      }</div>`:''}`;
+    $('completeTop').onclick=()=>{
+      const original=tasks.find(x=>x.id===t.id);
+      if(!original)return;
+      if(partial) original.minutes=Math.max(5,original.minutes-mins);
+      else { original.completed=true; original.completedAt=new Date().toISOString(); }
+      save(); renderAll(); toast(partial?mins+'分ぶん進めました':'完了にしました');
+    };
+    document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEdit(b.dataset.edit));
+  }
+
+  function renderList(){
+    const q=$('search').value.trim().toLowerCase();
+
+    const renderRows=(arr,isDone)=>{
+      if(!arr.length){
+        return `<div class="card empty"><strong>${isDone?'完了タスクはまだありません':'未完了タスクはありません'}</strong></div>`;
+      }
+      return `<div class="task-list">${arr.map(t=>`
+        <button class="task-row" data-row="${t.id}">
+          <div>
+            <div class="row-title">${esc(t.name)}</div>
+            <div class="row-sub">
+              <span>${t.minutes}分</span>
+              <span>負荷 ${ll(t.load)}</span>
+              <span>優先 ${pl(t.priority)}</span>
+              ${dl(t)?`<span>${dl(t)}</span>`:''}
+            </div>
+          </div>
+          <div class="row-action">${isDone?'完了':'編集'}</div>
+        </button>`).join('')}</div>`;
+    };
+
+    let openArr=tasks
+      .filter(t=>!t.completed)
+      .filter(t=>!q||t.name.toLowerCase().includes(q))
+      .map(t=>({...t,_score:score(t)}))
+      .sort((a,b)=>b._score-a._score);
+
+    let doneArr=tasks
+      .filter(t=>t.completed)
+      .filter(t=>!q||t.name.toLowerCase().includes(q))
+      .sort((a,b)=>new Date(b.completedAt||0)-new Date(a.completedAt||0));
+
+    $('openListWrap').innerHTML=renderRows(openArr,false);
+    $('doneListWrap').innerHTML=renderRows(doneArr,true);
+
+    document.querySelectorAll('[data-row]').forEach(b=>b.onclick=()=>openEdit(b.dataset.row));
+  }
+
+  function setChoice(id,v){
+    document.querySelectorAll('#'+id+' button').forEach(b=>b.classList.toggle('active',Number(b.dataset.v)===Number(v)));
+  }
+  function getChoice(id){ return Number(document.querySelector('#'+id+' button.active')?.dataset.v||2); }
+
+  function durationToMinutes(v){
+    if(!v || !v.includes(':')) return 30;
+    const [h,m]=v.split(':').map(Number);
+    return Math.max(5,(h||0)*60+(m||0));
+  }
+
+  function minutesToDuration(total){
+    total=Math.max(5,Math.min(1435,Number(total)||30));
+    const h=Math.floor(total/60);
+    const m=total%60;
+    return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  }
+
+  function updateDurationDisplay(){
+    const total=durationToMinutes($('durationPicker').value);
+    const h=Math.floor(total/60);
+    const m=total%60;
+    $('durationDisplay').textContent=(h ? h+'時間' : '') + (m ? m+'分' : '');
+  }
+
+  function resetForm(){
+    editId=null; $('taskName').value=''; $('durationPicker').value='00:30'; updateDurationDisplay(); $('deadline').value='';
+    setChoice('priority',2); setChoice('load',2); $('deleteBtn').style.display='none'; $('saveBtn').textContent='追加する';
+  }
+  function openEdit(id){
+    const t=tasks.find(x=>x.id===id); if(!t)return;
+    editId=id; $('taskName').value=t.name;
+    $('durationPicker').value=minutesToDuration(t.minutes);
+    updateDurationDisplay();
+    $('deadline').value=t.deadline||'';
+    setChoice('priority',t.priority); setChoice('load',t.load); $('deleteBtn').style.display='block'; $('saveBtn').textContent='保存する';
+    $('tab-add').checked=true; syncHeader();
+  }
+  function saveForm(){
+    const name=$('taskName').value.trim();
+    if(!name){
+      $('taskName').focus();
+      toast('タスク名を入れてね');
+      return;
+    }
+    let totalMinutes=durationToMinutes($('durationPicker').value);
+    if(totalMinutes<=0) totalMinutes=5;
+    const data={name,minutes:totalMinutes,priority:getChoice('priority'),load:getChoice('load'),deadline:$('deadline').value||null};
+    if(editId){
+      const i=tasks.findIndex(t=>t.id===editId); if(i>=0)tasks[i]={...tasks[i],...data};
+      toast('保存しました');
+    }else{
+      tasks.unshift({id:uid(),completed:false,createdAt:new Date().toISOString(),...data}); toast('追加しました');
+    }
+    save(); resetForm(); renderAll(); $('tab-list').checked=true; syncHeader();
+  }
+  function deleteTask(){
+    if(!editId)return;
+    tasks=tasks.filter(t=>t.id!==editId); save(); resetForm(); renderAll(); $('tab-list').checked=true; syncHeader(); toast('削除しました');
+  }
+
+  function syncHeader(){
+    if($('tab-list').checked){$('title').textContent='タスク一覧';$('sub').textContent='全部ここで見える。';renderList();}
+    else if($('tab-add').checked){$('title').textContent=editId?'タスクを編集':'タスクを追加';$('sub').textContent='入力は必要なものだけ。';}
+    else {$('title').textContent='いまやる';$('sub').textContent='空いた時間に、迷わずひとつ。';renderRecommend();}
+  }
+  function renderAll(){renderRecommend();renderList();}
+  function toast(s){const e=$('toast');e.textContent=s;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),1500)}
+
+  document.querySelectorAll('input[name=tab]').forEach(x=>x.addEventListener('change',()=>{
+    if(x.id==='tab-add' && !editId) resetForm();
+    syncHeader();
+  }));
+  document.querySelectorAll('input[name=time],input[name=energy]').forEach(x=>x.addEventListener('change',()=>{ $('customTime').value=''; renderRecommend(); }));
+  $('customTime').addEventListener('input',renderRecommend);
+  ['priority','load'].forEach(id=>document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>setChoice(id,b.dataset.v)));
+  $('taskForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    saveForm();
+  });
+  $('deleteBtn').onclick=deleteTask;
+  $('search').addEventListener('input',renderList);
+  document.querySelectorAll('input[name=listmode]').forEach(x=>x.addEventListener('change',renderList));
+  $('durationPicker').addEventListener('input',updateDurationDisplay);
+  $('durationPicker').addEventListener('change',updateDurationDisplay);
+
+  document.documentElement.dataset.js='on';
+  updateDurationDisplay();renderAll();syncHeader();
+})();
+</script>
+</body>
+</html>
