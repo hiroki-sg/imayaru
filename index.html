@@ -19,6 +19,7 @@ html,body{margin:0;min-height:100%;background:var(--bg);font-family:-apple-syste
 body{min-height:100dvh}
 button,input{font:inherit}
 input[type=radio]{position:absolute;opacity:0;pointer-events:none}
+input, button, select, textarea{max-width:100%}
 .shell{max-width:620px;margin:auto;min-height:100dvh;padding-bottom:calc(86px + env(safe-area-inset-bottom))}
 header{padding:calc(18px + env(safe-area-inset-top)) 18px 8px}
 h1{font-size:28px;margin:0;letter-spacing:-.03em}
@@ -62,7 +63,15 @@ main{padding:8px 14px 28px}
 .primary{width:100%;border:0;border-radius:14px;min-height:50px;background:var(--accent);color:#fff;font-weight:760;margin-top:14px}
 .secondary{border:1px solid var(--line);border-radius:13px;background:var(--surface);min-height:46px;font-weight:680}
 .ghost{width:100%;border:0;background:transparent;color:var(--sub);min-height:42px;font-weight:650}
-.input{width:100%;min-height:48px;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:0 14px;outline:none}
+.input{
+  display:block;width:100%;max-width:100%;min-width:0;
+  min-height:48px;border:1px solid var(--line);border-radius:14px;background:var(--surface);
+  padding:0 14px;outline:none
+}
+input[type="date"].input{
+  -webkit-appearance:none;appearance:none;
+  line-height:48px
+}
 .input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
 .field{margin-bottom:17px}
 .field label.title{display:block;font-size:13px;color:var(--sub);font-weight:650;margin:0 0 8px 2px}
@@ -71,19 +80,20 @@ main{padding:8px 14px 28px}
 .choices button.active{background:var(--soft);color:var(--accent);border-color:transparent}
 
 .duration-picker-wrap{
-  border:1px solid var(--line);border-radius:16px;padding:14px;background:#fbfcfa
+  border:1px solid var(--line);border-radius:16px;padding:14px;background:#fbfcfa;overflow:hidden
 }
 .duration-display{
   font-size:24px;font-weight:760;letter-spacing:-.02em;margin:1px 0 12px
 }
 .duration-picker{
-  width:100%;min-height:52px;border:1px solid var(--line);border-radius:14px;background:var(--surface);
+  display:block;width:100%;max-width:100%;min-width:0;
+  min-height:52px;border:1px solid var(--line);border-radius:14px;background:var(--surface);
   padding:0 14px;color:var(--text);font-size:18px;font-weight:700;text-align:center;
-  appearance:auto;-webkit-appearance:auto
+  appearance:auto;-webkit-appearance:auto;line-height:52px
 }
 .duration-picker:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
 
-.form-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px}
+.form-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;overflow:hidden}
 .note{font-size:12px;color:var(--sub);line-height:1.6;margin-top:7px}
 .search{margin-bottom:11px}
 .list-tabs{display:flex;gap:7px;margin-bottom:11px}
