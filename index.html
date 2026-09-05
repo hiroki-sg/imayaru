@@ -150,6 +150,24 @@ main{padding:8px 14px 28px}
 .row-action{font-size:12px;color:var(--accent);font-weight:700;align-self:center}
 .empty{text-align:center;color:var(--sub);padding:34px 20px}
 .empty strong{display:block;color:var(--text);font-size:17px;margin-bottom:5px}
+.urgent-wrap{margin:-2px 0 18px}
+.urgent-banner{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  min-height:48px;
+  padding:0 14px;
+  border:1px solid #f0d9cf;
+  border-radius:14px;
+  background:#fff7f3;
+  color:#9b4a39;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer
+}
+.urgent-banner .arrow{font-size:16px;color:#b16a59}
 .alt{display:grid;gap:8px;margin-top:10px}
 .alt button{border:1px solid var(--line);border-radius:15px;background:var(--surface);padding:13px 14px;text-align:left}
 .alt strong{display:block}.alt span{display:block;font-size:12px;color:var(--sub);margin-top:4px}
@@ -222,6 +240,8 @@ main{padding:8px 14px 28px}
       </div>
     </div>
 
+    <div id="urgentWrap" class="urgent-wrap"></div>
+
     <div class="section" id="recommendWrap"></div>
   </section>
 
@@ -291,10 +311,10 @@ main{padding:8px 14px 28px}
       </div>
 
       <div class="field">
-        <label class="title" for="deadline">締切（任意）</label>
+        <label class="title" for="deadline">締切日時（任意）</label>
         <div class="native-picker-shell">
           <div class="native-picker-text placeholder" id="deadlineControlText">未設定</div>
-          <input id="deadline" class="native-picker-input" type="date" aria-label="締切を選択">
+          <input id="deadline" class="native-picker-input" type="datetime-local" step="300" aria-label="締切日時を選択">
         </div>
         <div class="note">締切が近づくほど自動でおすすめ順位が上がります。</div>
       </div>
@@ -359,7 +379,9 @@ main{padding:8px 14px 28px}
 
   function days(deadline){
     if(!deadline) return null;
-    return (new Date(deadline+'T23:59:59') - new Date()) / 86400000;
+    const due=new Date(deadline);
+    if(Number.isNaN(due.getTime())) return null;
+    return (due - new Date()) / 86400000;
   }
   function deadlineBoost(t){
     const d=days(t.deadline);
@@ -379,7 +401,9 @@ main{padding:8px 14px 28px}
     const d=days(t.deadline);
     if(d===null) return '';
     if(d<0) return '期限超過';
-    if(d<1) return '今日まで';
+    const hours=Math.ceil(d*24);
+    if(hours<=1) return '1時間以内';
+    if(hours<24) return 'あと'+hours+'時間';
     return 'あと'+Math.ceil(d)+'日';
   }
   const pl=n=>['','低','中','高'][n]||'中';
@@ -387,6 +411,29 @@ main{padding:8px 14px 28px}
 
   function ranked(){
     return tasks.filter(t=>!t.completed).map(t=>({...t,_score:score(t)})).sort((a,b)=>b._score-a._score);
+  }
+
+  function renderUrgent(){
+    const wrap=$('urgentWrap');
+    if(!wrap) return;
+    const urgent=tasks
+      .filter(t=>!t.completed && t.deadline)
+      .filter(t=>{
+        const d=days(t.deadline);
+        return d!==null && d<=1;
+      })
+      .sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
+
+    if(!urgent.length){
+      wrap.innerHTML='';
+      return;
+    }
+    const count=urgent.length;
+    wrap.innerHTML=`
+      <label for="tab-list" class="urgent-banner" aria-label="締切間近のタスクを一覧で見る">
+        <span>締切間近 ${count}件 ⚠️</span>
+        <span class="arrow">›</span>
+      </label>`;
   }
 
   function renderRecommend(){
@@ -496,8 +543,17 @@ main{padding:8px 14px 28px}
       label.classList.add('placeholder');
       return;
     }
-    const [y,m,d]=value.split('-');
-    label.textContent=Number(m)+'月'+Number(d)+'日';
+    const due=new Date(value);
+    if(Number.isNaN(due.getTime())){
+      label.textContent='未設定';
+      label.classList.add('placeholder');
+      return;
+    }
+    const mo=due.getMonth()+1;
+    const da=due.getDate();
+    const hh=String(due.getHours()).padStart(2,'0');
+    const mm=String(due.getMinutes()).padStart(2,'0');
+    label.textContent=mo+'月'+da+'日 '+hh+':'+mm;
     label.classList.remove('placeholder');
   }
 
@@ -510,7 +566,11 @@ main{padding:8px 14px 28px}
     editId=id; $('taskName').value=t.name;
     $('durationPicker').value=minutesToDuration(t.minutes);
     updateDurationDisplay();
-    $('deadline').value=t.deadline||'';
+    if(t.deadline && /^\d{4}-\d{2}-\d{2}$/.test(t.deadline)){
+      $('deadline').value=t.deadline+'T23:59';
+    }else{
+      $('deadline').value=t.deadline||'';
+    }
     updateDeadlineDisplay();
     setChoice('priority',t.priority); setChoice('load',t.load); $('deleteBtn').style.display='block'; $('saveBtn').textContent='保存する';
     $('tab-add').checked=true; syncHeader();
@@ -541,9 +601,9 @@ main{padding:8px 14px 28px}
   function syncHeader(){
     if($('tab-list').checked){$('title').textContent='タスク一覧';$('sub').textContent='全部ここで見える。';renderList();}
     else if($('tab-add').checked){$('title').textContent=editId?'タスクを編集':'タスクを追加';$('sub').textContent='入力は必要なものだけ。';}
-    else {$('title').textContent='いまやる';$('sub').textContent='空いた時間に、迷わずひとつ。';renderRecommend();}
+    else {$('title').textContent='いまやる';$('sub').textContent='空いた時間に、迷わずひとつ。';renderUrgent();renderRecommend();}
   }
-  function renderAll(){renderRecommend();renderList();}
+  function renderAll(){renderUrgent();renderRecommend();renderList();}
   function toast(s){const e=$('toast');e.textContent=s;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),1500)}
 
   document.querySelectorAll('input[name=tab]').forEach(x=>x.addEventListener('change',()=>{
