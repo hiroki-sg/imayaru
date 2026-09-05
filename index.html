@@ -68,10 +68,6 @@ main{padding:8px 14px 28px}
   min-height:48px;border:1px solid var(--line);border-radius:14px;background:var(--surface);
   padding:0 14px;outline:none
 }
-input[type="date"].input{
-  -webkit-appearance:none;appearance:none;
-  line-height:48px
-}
 .input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
 .field{margin-bottom:17px}
 .field label.title{display:block;font-size:13px;color:var(--sub);font-weight:650;margin:0 0 8px 2px}
@@ -85,13 +81,51 @@ input[type="date"].input{
 .duration-display{
   font-size:24px;font-weight:760;letter-spacing:-.02em;margin:1px 0 12px
 }
-.duration-picker{
-  display:block;width:100%;max-width:100%;min-width:0;
-  min-height:52px;border:1px solid var(--line);border-radius:14px;background:var(--surface);
-  padding:0 14px;color:var(--text);font-size:18px;font-weight:700;text-align:center;
-  appearance:auto;-webkit-appearance:auto;line-height:52px
+.native-picker-shell{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  max-width:100%;
+  height:52px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--surface);
+  overflow:hidden
 }
-.duration-picker:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+.native-picker-text{
+  width:100%;
+  padding:0 14px;
+  text-align:center;
+  font-size:18px;
+  font-weight:700;
+  color:var(--text);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  pointer-events:none
+}
+.native-picker-text.placeholder{color:#9da29e;font-weight:600}
+.native-picker-input{
+  position:absolute;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  min-width:0;
+  max-width:none;
+  margin:0;
+  padding:0;
+  border:0;
+  opacity:0;
+  cursor:pointer;
+  z-index:2
+}
+.native-picker-shell:focus-within{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--soft)
+}
 
 .form-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;overflow:hidden}
 .note{font-size:12px;color:var(--sub);line-height:1.6;margin-top:7px}
@@ -230,16 +264,20 @@ input[type="date"].input{
       <div class="field">
         <label class="title" for="durationPicker">必要時間</label>
         <div class="duration-picker-wrap">
-          <div class="duration-display" id="durationDisplay">0時間30分</div>
-          <input
-            id="durationPicker"
-            class="duration-picker"
-            type="time"
-            value="00:30"
-            min="00:05"
-            max="23:55"
-            step="300"
-          >
+          <div class="duration-display" id="durationDisplay">30分</div>
+          <div class="native-picker-shell">
+            <div class="native-picker-text" id="durationControlText">0:30</div>
+            <input
+              id="durationPicker"
+              class="native-picker-input"
+              type="time"
+              value="00:30"
+              min="00:05"
+              max="23:55"
+              step="300"
+              aria-label="必要時間を選択"
+            >
+          </div>
         </div>
       </div>
 
@@ -254,7 +292,10 @@ input[type="date"].input{
 
       <div class="field">
         <label class="title" for="deadline">締切（任意）</label>
-        <input id="deadline" class="input" type="date">
+        <div class="native-picker-shell">
+          <div class="native-picker-text placeholder" id="deadlineControlText">未設定</div>
+          <input id="deadline" class="native-picker-input" type="date" aria-label="締切を選択">
+        </div>
         <div class="note">締切が近づくほど自動でおすすめ順位が上がります。</div>
       </div>
     </div>
@@ -444,10 +485,24 @@ input[type="date"].input{
     const h=Math.floor(total/60);
     const m=total%60;
     $('durationDisplay').textContent=(h ? h+'時間' : '') + (m ? m+'分' : '');
+    $('durationControlText').textContent=h+':'+String(m).padStart(2,'0');
+  }
+
+  function updateDeadlineDisplay(){
+    const value=$('deadline').value;
+    const label=$('deadlineControlText');
+    if(!value){
+      label.textContent='未設定';
+      label.classList.add('placeholder');
+      return;
+    }
+    const [y,m,d]=value.split('-');
+    label.textContent=Number(m)+'月'+Number(d)+'日';
+    label.classList.remove('placeholder');
   }
 
   function resetForm(){
-    editId=null; $('taskName').value=''; $('durationPicker').value='00:30'; updateDurationDisplay(); $('deadline').value='';
+    editId=null; $('taskName').value=''; $('durationPicker').value='00:30'; updateDurationDisplay(); $('deadline').value=''; updateDeadlineDisplay();
     setChoice('priority',2); setChoice('load',2); $('deleteBtn').style.display='none'; $('saveBtn').textContent='追加する';
   }
   function openEdit(id){
@@ -456,6 +511,7 @@ input[type="date"].input{
     $('durationPicker').value=minutesToDuration(t.minutes);
     updateDurationDisplay();
     $('deadline').value=t.deadline||'';
+    updateDeadlineDisplay();
     setChoice('priority',t.priority); setChoice('load',t.load); $('deleteBtn').style.display='block'; $('saveBtn').textContent='保存する';
     $('tab-add').checked=true; syncHeader();
   }
@@ -506,9 +562,11 @@ input[type="date"].input{
   document.querySelectorAll('input[name=listmode]').forEach(x=>x.addEventListener('change',renderList));
   $('durationPicker').addEventListener('input',updateDurationDisplay);
   $('durationPicker').addEventListener('change',updateDurationDisplay);
+  $('deadline').addEventListener('input',updateDeadlineDisplay);
+  $('deadline').addEventListener('change',updateDeadlineDisplay);
 
   document.documentElement.dataset.js='on';
-  updateDurationDisplay();renderAll();syncHeader();
+  updateDurationDisplay();updateDeadlineDisplay();renderAll();syncHeader();
 })();
 </script>
 </body>
