@@ -255,9 +255,9 @@ main{padding:8px 14px 28px}
       <div class="field">
         <label class="title">基本優先順位</label>
         <div class="choices" id="priority">
-          <button data-v="1">低</button>
-          <button data-v="2" class="active">中</button>
-          <button data-v="3">高</button>
+          <button type="button" data-v="1">低</button>
+          <button type="button" data-v="2" class="active">中</button>
+          <button type="button" data-v="3">高</button>
         </div>
       </div>
 
@@ -284,9 +284,9 @@ main{padding:8px 14px 28px}
       <div class="field">
         <label class="title">負荷</label>
         <div class="choices" id="load">
-          <button data-v="1">低</button>
-          <button data-v="2" class="active">中</button>
-          <button data-v="3">高</button>
+          <button type="button" data-v="1">低</button>
+          <button type="button" data-v="2" class="active">中</button>
+          <button type="button" data-v="3">高</button>
         </div>
       </div>
 
@@ -555,6 +555,7 @@ main{padding:8px 14px 28px}
   ['priority','load'].forEach(id=>document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>setChoice(id,b.dataset.v)));
   $('taskForm').addEventListener('submit',e=>{
     e.preventDefault();
+    if(e.submitter && e.submitter.id!=='saveBtn') return;
     saveForm();
   });
   $('deleteBtn').onclick=deleteTask;
