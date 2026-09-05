@@ -443,8 +443,19 @@ main{padding:8px 14px 28px}
   }
   function score(t){
     const p={1:25,2:50,3:78}[t.priority]||50;
-    const e=energy(), diff=Math.abs(t.load-e);
-    const loadFit=diff===0?18:diff===1?9:(e<t.load?-14:3);
+    const e=energy();
+
+    let loadFit=0;
+    if(e===1 && t.load===1) loadFit=18;
+    else if(e===1 && t.load===2) loadFit=-6;
+    else if(e===1 && t.load===3) loadFit=-14;
+    else if(e===2 && t.load===1) loadFit=6;
+    else if(e===2 && t.load===2) loadFit=18;
+    else if(e===2 && t.load===3) loadFit=-6;
+    else if(e===3 && t.load===1) loadFit=3;
+    else if(e===3 && t.load===2) loadFit=9;
+    else if(e===3 && t.load===3) loadFit=18;
+
     const mins=freeTime();
     const timeFit=t.minutes<=mins?18:8;
     return p+deadlineBoost(t)+loadFit+timeFit;
