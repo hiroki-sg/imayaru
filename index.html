@@ -357,7 +357,7 @@ main{padding:8px 14px 28px}
 <header>
   <h1 id="title">いまやる</h1>
   <div id="sub">空いた時間に、迷わずひとつ。</div>
-  <div class="app-version">ver.1.1.3</div>
+  <div class="app-version">ver.1.1.4</div>
 </header>
 
 <main>
@@ -494,6 +494,7 @@ main{padding:8px 14px 28px}
   let selectedProgressMinutes = null;
 
   let listEditMode = false;
+  let listEditTarget = 'open';
   let selectedListIds = new Set();
   const $ = id => document.getElementById(id);
 
@@ -757,127 +758,140 @@ main{padding:8px 14px 28px}
       .filter(t=>!q||t.name.toLowerCase().includes(q))
       .sort((a,b)=>new Date(b.completedAt||0)-new Date(a.completedAt||0));
 
-    // Remove selections for tasks no longer visible/existing.
-    const visibleIds=new Set(openArr.map(t=>String(t.id)));
-    selectedListIds=new Set([...selectedListIds].filter(id=>visibleIds.has(String(id))));
+    const makeToolbar=(target, arr)=>{
+      const editing=listEditMode && listEditTarget===target;
+      const visibleIds=new Set(arr.map(t=>String(t.id)));
 
-    const toolbar=`
-      <div class="list-edit-toolbar">
-        <div class="left-actions">
-          ${listEditMode ? `<button type="button" id="selectAllBtn" class="list-toolbar-btn">${openArr.length && openArr.every(t=>selectedListIds.has(String(t.id)))?'選択解除':'すべて選択'}</button>` : ''}
-        </div>
-        <div class="right-actions">
-          <button type="button" id="toggleListEdit" class="list-toolbar-btn ${listEditMode?'active':''}">
-            ${listEditMode?'完了':'編集'}
-          </button>
-        </div>
-      </div>
-    `;
-
-    const renderOpenRows=(arr)=>{
-      if(!arr.length){
-        return `<div class="card empty"><strong>未完了タスクはありません</strong></div>`;
+      if(editing){
+        selectedListIds=new Set([...selectedListIds].filter(id=>visibleIds.has(String(id))));
       }
-      return `<div class="task-list ${listEditMode?'editing':''}">${arr.map(t=>{
+
+      const allSelected=editing && arr.length && arr.every(t=>selectedListIds.has(String(t.id)));
+
+      return `
+        <div class="list-edit-toolbar">
+          <div class="left-actions">
+            ${editing ? `<button type="button" class="list-toolbar-btn" data-select-all="${target}">
+              ${allSelected?'選択解除':'すべて選択'}
+            </button>` : ''}
+          </div>
+          <div class="right-actions">
+            <button type="button" class="list-toolbar-btn ${editing?'active':''}" data-toggle-edit="${target}">
+              ${editing?'完了':'編集'}
+            </button>
+          </div>
+        </div>
+      `;
+    };
+
+    const renderRows=(arr,target)=>{
+      const editing=listEditMode && listEditTarget===target;
+
+      if(!arr.length){
+        return `<div class="card empty"><strong>${target==='open'?'未完了タスクはありません':'完了タスクはまだありません'}</strong></div>`;
+      }
+
+      return `<div class="task-list ${editing?'editing':''}">${arr.map(t=>{
         const selected=selectedListIds.has(String(t.id));
         return `
-        <div class="swipe-item ${listEditMode?'edit-mode':''}" data-swipe-item="${t.id}">
-          ${listEditMode ? '' : `
-          <div class="swipe-actions">
-            <button type="button" class="swipe-delete" data-delete-row="${t.id}">削除</button>
-          </div>`}
-          <button class="task-row" type="button" data-row="${t.id}">
-            ${listEditMode ? `<span class="select-circle ${selected?'selected':''}" aria-hidden="true"></span>` : ''}
-            <div>
-              <div class="row-title">${esc(t.name)}</div>
-              <div class="row-sub">
-                <span>${t.minutes}分</span>
-                <span>負荷 ${ll(t.load)}</span>
-                <span>優先 ${pl(t.priority)}</span>
-                ${dl(t)?`<span>${dl(t)}</span>`:''}
+          <div class="swipe-item ${editing?'edit-mode':''}" data-swipe-item="${t.id}">
+            ${editing ? '' : `
+              <div class="swipe-actions">
+                <button type="button" class="swipe-delete" data-delete-row="${t.id}">削除</button>
               </div>
-            </div>
-            <div class="row-action">${listEditMode?(selected?'選択中':'選択'):'編集'}</div>
-          </button>
-        </div>`;
+            `}
+            <button class="task-row" type="button" data-row="${t.id}" data-list-target="${target}">
+              ${editing ? `<span class="select-circle ${selected?'selected':''}" aria-hidden="true"></span>` : ''}
+              <div>
+                <div class="row-title">${esc(t.name)}</div>
+                <div class="row-sub">
+                  <span>${t.minutes}分</span>
+                  <span>負荷 ${ll(t.load)}</span>
+                  <span>優先 ${pl(t.priority)}</span>
+                  ${dl(t)?`<span>${dl(t)}</span>`:''}
+                </div>
+              </div>
+              <div class="row-action">${editing?(selected?'選択中':'選択'):(target==='open'?'編集':'完了')}</div>
+            </button>
+          </div>
+        `;
       }).join('')}</div>`;
     };
 
-    const renderDoneRows=(arr)=>{
-      if(!arr.length){
-        return `<div class="card empty"><strong>完了タスクはまだありません</strong></div>`;
-      }
-      return `<div class="task-list">${arr.map(t=>`
-        <button class="task-row" type="button" data-row="${t.id}">
-          <div>
-            <div class="row-title">${esc(t.name)}</div>
-            <div class="row-sub">
-              <span>${t.minutes}分</span>
-              <span>負荷 ${ll(t.load)}</span>
-              <span>優先 ${pl(t.priority)}</span>
-              ${dl(t)?`<span>${dl(t)}</span>`:''}
-            </div>
-          </div>
-          <div class="row-action">完了</div>
-        </button>`).join('')}</div>`;
-    };
-
-    $('openListWrap').innerHTML=
-      toolbar+
-      renderOpenRows(openArr)+
-      (listEditMode ? `
+    const bulkBar=(target)=>{
+      const editing=listEditMode && listEditTarget===target;
+      if(!editing) return '';
+      return `
         <div class="bulk-delete-bar">
-          <button type="button" id="bulkDeleteBtn" class="bulk-delete-btn" ${selectedListIds.size?'':'disabled'}>
+          <button type="button" class="bulk-delete-btn" data-bulk-delete="${target}" ${selectedListIds.size?'':'disabled'}>
             ${selectedListIds.size ? selectedListIds.size+'件を削除' : '削除する項目を選択'}
           </button>
-        </div>` : '');
+        </div>
+      `;
+    };
 
-    $('doneListWrap').innerHTML=renderDoneRows(doneArr);
+    $('openListWrap').innerHTML =
+      makeToolbar('open', openArr) +
+      renderRows(openArr,'open') +
+      bulkBar('open');
 
-    const toggle=$('toggleListEdit');
-    if(toggle){
-      toggle.onclick=()=>{
-        listEditMode=!listEditMode;
+    $('doneListWrap').innerHTML =
+      makeToolbar('done', doneArr) +
+      renderRows(doneArr,'done') +
+      bulkBar('done');
+
+    document.querySelectorAll('[data-toggle-edit]').forEach(btn=>{
+      btn.onclick=()=>{
+        const target=btn.dataset.toggleEdit;
+        const sameMode=listEditMode && listEditTarget===target;
+
+        listEditMode=!sameMode;
+        listEditTarget=target;
         selectedListIds.clear();
         closeAllSwipeItems();
         renderList();
       };
-    }
+    });
 
-    const selectAll=$('selectAllBtn');
-    if(selectAll){
-      selectAll.onclick=()=>{
-        const allSelected=openArr.length && openArr.every(t=>selectedListIds.has(String(t.id)));
+    document.querySelectorAll('[data-select-all]').forEach(btn=>{
+      btn.onclick=()=>{
+        const target=btn.dataset.selectAll;
+        const arr=target==='open'?openArr:doneArr;
+        const allSelected=arr.length && arr.every(t=>selectedListIds.has(String(t.id)));
+
         if(allSelected){
           selectedListIds.clear();
         }else{
-          openArr.forEach(t=>selectedListIds.add(String(t.id)));
+          selectedListIds=new Set(arr.map(t=>String(t.id)));
         }
         renderList();
       };
-    }
+    });
 
-    const bulkDelete=$('bulkDeleteBtn');
-    if(bulkDelete){
-      bulkDelete.onclick=()=>{
+    document.querySelectorAll('[data-bulk-delete]').forEach(btn=>{
+      btn.onclick=()=>{
         if(!selectedListIds.size) return;
         const count=selectedListIds.size;
+
         tasks=tasks.filter(t=>!selectedListIds.has(String(t.id)));
         selectedListIds.clear();
         listEditMode=false;
         selectedRecommendId=null;
         selectedProgressMinutes=null;
+
         save();
         renderAll();
         toast(count+'件削除しました');
       };
-    }
+    });
 
     document.querySelectorAll('[data-row]').forEach(btn=>{
       btn.onclick=()=>{
         const id=String(btn.dataset.row);
+        const target=btn.dataset.listTarget;
+        const editing=listEditMode && listEditTarget===target;
 
-        if(listEditMode && btn.closest('#openListWrap')){
+        if(editing){
           if(selectedListIds.has(id)) selectedListIds.delete(id);
           else selectedListIds.add(id);
           renderList();
@@ -889,6 +903,7 @@ main{padding:8px 14px 28px}
           parent.classList.remove('open');
           return;
         }
+
         openEdit(btn.dataset.row);
       };
     });
