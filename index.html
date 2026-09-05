@@ -206,6 +206,21 @@ main{padding:8px 14px 28px}
 .alt{display:grid;gap:8px;margin-top:10px}
 .alt button{border:1px solid var(--line);border-radius:15px;background:var(--surface);padding:13px 14px;text-align:left}
 .alt strong{display:block}.alt span{display:block;font-size:12px;color:var(--sub);margin-top:4px}
+.progress-picker{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.progress-label{font-size:12px;color:var(--sub);font-weight:650;margin-bottom:8px}
+.progress-options{display:flex;gap:7px;flex-wrap:wrap}
+.progress-chip{
+  min-width:58px;height:38px;padding:0 11px;border:1px solid var(--line);border-radius:999px;
+  background:var(--surface);color:var(--text);font-size:13px;font-weight:700
+}
+.progress-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.progress-custom-row{display:flex;align-items:center;gap:8px;margin-top:9px}
+.progress-custom{
+  width:92px;min-width:0;height:40px;border:1px solid var(--line);border-radius:12px;
+  background:var(--surface);padding:0 10px;text-align:center;font-size:14px;outline:none
+}
+.progress-custom:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+.progress-unit{font-size:13px;color:var(--sub)}
 .bottom-nav{
   position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(620px,100%);
   display:grid;grid-template-columns:repeat(3,1fr);padding:7px 8px calc(7px + env(safe-area-inset-bottom));
@@ -382,6 +397,7 @@ main{padding:8px 14px 28px}
   let tasks = [];
   let editId = null;
   let selectedRecommendId = null;
+  let selectedProgressMinutes = null;
   const $ = id => document.getElementById(id);
 
   try { tasks = JSON.parse(localStorage.getItem(K)) || []; } catch(e){ tasks=[]; }
@@ -477,6 +493,7 @@ main{padding:8px 14px 28px}
 
     if(!r.length){
       selectedRecommendId=null;
+      selectedProgressMinutes=null;
       wrap.innerHTML='';
       return;
     }
@@ -485,16 +502,28 @@ main{padding:8px 14px 28px}
     if(!selected){
       selected=r[0];
       selectedRecommendId=selected.id;
+      selectedProgressMinutes=null;
     }
 
     const others=r.filter(t=>t.id!==selected.id);
     const mins=freeTime();
     const partial=selected.minutes>mins;
 
+    if(selectedProgressMinutes===null){
+      selectedProgressMinutes=Math.min(mins, selected.minutes);
+    }
+    selectedProgressMinutes=Math.max(5, Math.min(selectedProgressMinutes, selected.minutes));
+
+    const quickBase=[5,10,15,30,60];
+    const quickOptions=[...new Set(
+      quickBase.filter(v=>v<=selected.minutes)
+        .concat([Math.min(mins,selected.minutes)])
+    )].sort((a,b)=>a-b);
+
     wrap.innerHTML=`
       <div class="section-title">いまやるなら</div>
       <div class="card recommend">
-        <div class="eyebrow">${partial?mins+'分だけ進める':'おすすめ'}</div>
+        <div class="eyebrow">${selected.minutes>selectedProgressMinutes?selectedProgressMinutes+'分だけ進める':'おすすめ'}</div>
         <div class="bigtitle">${esc(selected.name)}</div>
         <div class="meta">
           <span class="badge">${selected.minutes}分</span>
@@ -502,8 +531,37 @@ main{padding:8px 14px 28px}
           <span class="badge">優先 ${pl(selected.priority)}</span>
           ${dl(selected)?`<span class="badge">${dl(selected)}</span>`:''}
         </div>
-        <div class="why">${selected.priority===3?'基本優先順位が高いです。 ':''}${dl(selected)?'締切も考慮しています。 ':''}${partial?mins+'分だけでも進められます。':'今の空き時間で終えられます。'}</div>
-        <button class="primary" type="button" id="completeTop">${partial?mins+'分やった':'完了にする'}</button>
+        <div class="why">${selected.priority===3?'基本優先順位が高いです。 ':''}${dl(selected)?'締切も考慮しています。 ':''}${selected.minutes<=mins?'今の空き時間で終えられます。':'好きな時間だけ進められます。'}</div>
+
+        ${selected.minutes>5 ? `
+          <div class="progress-picker">
+            <div class="progress-label">進める時間</div>
+            <div class="progress-options">
+              ${quickOptions.map(v=>`
+                <button type="button" class="progress-chip ${v===selectedProgressMinutes?'active':''}" data-progress-minutes="${v}">
+                  ${v}分
+                </button>`).join('')}
+            </div>
+            <div class="progress-custom-row">
+              <input
+                id="progressCustom"
+                class="progress-custom"
+                type="number"
+                inputmode="numeric"
+                min="5"
+                max="${selected.minutes}"
+                step="5"
+                placeholder="自由"
+                value="${quickOptions.includes(selectedProgressMinutes)?'':selectedProgressMinutes}"
+              >
+              <span class="progress-unit">分</span>
+            </div>
+          </div>
+        `:''}
+
+        <button class="primary" type="button" id="completeTop">
+          ${selectedProgressMinutes>=selected.minutes?'完了にする':selectedProgressMinutes+'分やった'}
+        </button>
       </div>
 
       ${others.length ? `
@@ -518,20 +576,48 @@ main{padding:8px 14px 28px}
       `:''}
     `;
 
+    document.querySelectorAll('[data-progress-minutes]').forEach(btn=>{
+      btn.onclick=()=>{
+        selectedProgressMinutes=Number(btn.dataset.progressMinutes);
+        renderRecommend();
+      };
+    });
+
+    const custom=$('progressCustom');
+    if(custom){
+      custom.addEventListener('input',()=>{
+        const raw=Number(custom.value);
+        if(!raw) return;
+        selectedProgressMinutes=Math.max(5,Math.min(selected.minutes,raw));
+        document.querySelectorAll('[data-progress-minutes]').forEach(b=>{
+          b.classList.toggle('active',Number(b.dataset.progressMinutes)===selectedProgressMinutes);
+        });
+        const action=$('completeTop');
+        if(action){
+          action.textContent=selectedProgressMinutes>=selected.minutes
+            ? '完了にする'
+            : selectedProgressMinutes+'分やった';
+        }
+      });
+    }
+
     $('completeTop').onclick=()=>{
       const original=tasks.find(x=>x.id===selected.id);
       if(!original) return;
 
-      if(partial){
-        original.minutes=Math.max(5,original.minutes-mins);
-        toast(mins+'分ぶん進めました');
-      }else{
+      const progressed=Math.max(5,Math.min(selectedProgressMinutes||mins, original.minutes));
+
+      if(progressed>=original.minutes){
         original.completed=true;
         original.completedAt=new Date().toISOString();
         toast('完了にしました');
+      }else{
+        original.minutes=Math.max(5,original.minutes-progressed);
+        toast(progressed+'分ぶん進めました');
       }
 
       selectedRecommendId=null;
+      selectedProgressMinutes=null;
       save();
       renderAll();
     };
@@ -539,6 +625,7 @@ main{padding:8px 14px 28px}
     document.querySelectorAll('[data-select-recommend]').forEach(btn=>{
       btn.onclick=()=>{
         selectedRecommendId=btn.dataset.selectRecommend;
+        selectedProgressMinutes=null;
         renderRecommend();
         requestAnimationFrame(()=>{
           const card=document.querySelector('.recommend');
@@ -613,7 +700,10 @@ main{padding:8px 14px 28px}
 
   function removeTaskById(id){
     tasks=tasks.filter(t=>t.id!==id);
-    if(selectedRecommendId===id) selectedRecommendId=null;
+    if(selectedRecommendId===id){
+      selectedRecommendId=null;
+      selectedProgressMinutes=null;
+    }
     save();
     renderAll();
     toast('削除しました');
@@ -776,7 +866,10 @@ main{padding:8px 14px 28px}
   function deleteTask(){
     if(!editId)return;
     tasks=tasks.filter(t=>t.id!==editId);
-    if(selectedRecommendId===editId) selectedRecommendId=null;
+    if(selectedRecommendId===editId){
+      selectedRecommendId=null;
+      selectedProgressMinutes=null;
+    }
     save(); resetForm(); renderAll(); $('tab-list').checked=true; syncHeader(); toast('削除しました');
   }
 
