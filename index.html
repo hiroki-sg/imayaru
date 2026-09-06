@@ -357,7 +357,7 @@ main{padding:8px 14px 28px}
 <header>
   <h1 id="title">いまやる</h1>
   <div id="sub">空いた時間に、迷わずひとつ。</div>
-  <div class="app-version">ver.1.1.4</div>
+  <div class="app-version">ver.1.1.5</div>
 </header>
 
 <main>
@@ -1084,10 +1084,19 @@ main{padding:8px 14px 28px}
   ['priority','load'].forEach(id=>document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>setChoice(id,b.dataset.v)));
   $('taskForm').addEventListener('submit',e=>{
     e.preventDefault();
-    if(e.submitter && e.submitter.id!=='saveBtn') return;
+    if(!e.submitter || e.submitter.id!=='saveBtn') return;
     saveForm();
   });
   $('deleteBtn').onclick=deleteTask;
+
+  $('taskName').addEventListener('keydown',e=>{
+    if(e.key==='Enter'){
+      e.preventDefault();
+      e.stopPropagation();
+      $('taskName').blur();
+    }
+  });
+
   $('search').addEventListener('input',renderList);
   document.querySelectorAll('input[name=listmode]').forEach(x=>x.addEventListener('change',renderList));
   $('durationPicker').addEventListener('input',updateDurationDisplay);
